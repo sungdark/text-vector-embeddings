@@ -116,7 +116,7 @@ export async function commentChecker(context: Context<"issue_comment.created">, 
   } else {
     context.logger.info("No similar comments found for comment", { commentBody });
   }
-  await handleSimilarIssuesAndComments(context, payload, commentBody, comment.id, processedIssues, processedComments);
+  await handleSimilarIssuesAndComments(context, commentBody, comment.id, processedIssues, processedComments);
 }
 
 function filterByScope(scope: string, repoOrg: string, similarIssueRepoOrg: string, repoName: string, similarIssueRepoName: string): boolean {
@@ -133,14 +133,20 @@ function filterByScope(scope: string, repoOrg: string, similarIssueRepoOrg: stri
 }
 
 async function handleSimilarIssuesAndComments(
-  context: Context,
-  payload: Context["payload"],
+  context: Context<"issue_comment.created">,
   commentBody: string,
   commentId: number,
   issueList: IssueGraphqlResponse[],
   commentList: CommentGraphqlResponse[]
 ) {
   if (!issueList.length && !commentList.length) {
+    // Post a comment informing the user that no similar matches were found
+    await context.octokit.rest.issues.createComment({
+      owner: context.payload.repository.owner.login,
+      repo: context.payload.repository.name,
+      issue_number: context.payload.issue.number,
+      body: "> The `/annotate` command ran successfully, but no similar issues or comments were found above the matching threshold.",
+    });
     return;
   }
   // Find existing footnotes in the body
@@ -219,8 +225,8 @@ async function handleSimilarIssuesAndComments(
   }
   // Update the comment with the modified body
   await context.octokit.rest.issues.updateComment({
-    owner: payload.repository.owner.login,
-    repo: payload.repository.name,
+    owner: context.payload.repository.owner.login,
+    repo: context.payload.repository.name,
     comment_id: commentId,
     body: updatedBody,
   });
