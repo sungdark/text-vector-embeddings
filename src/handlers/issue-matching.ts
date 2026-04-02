@@ -221,16 +221,15 @@ async function issueMatchingInternal(context: Context<IssueMatchingEvents>, opti
           }
           const similarityPercentage = Math.round(issue.similarity * 100);
           const issueLink = issue.node.url.replace(/https?:\/\/github.com/, "https://www.github.com");
+          const issueLinkMarkdown = `> \`${similarityPercentage}% Match\` [${issue.node.repository.owner.login}/${issue.node.repository.name}#${issue.node.url.split("/").pop()}](${issueLink})`;
           if (matchResultArray.has(assignee.login)) {
-            matchResultArray
-              .get(assignee.login)
-              ?.push(
-                `> \`${similarityPercentage}% Match\` [${issue.node.repository.owner.login}/${issue.node.repository.name}#${issue.node.url.split("/").pop()}](${issueLink})`
-              );
+            // Deduplicate: only add if this exact issue link hasn't been added for this assignee
+            const existingLinks = matchResultArray.get(assignee.login);
+            if (existingLinks && !existingLinks.includes(issueLinkMarkdown)) {
+              existingLinks.push(issueLinkMarkdown);
+            }
           } else {
-            matchResultArray.set(assignee.login, [
-              `> \`${similarityPercentage}% Match\` [${issue.node.repository.owner.login}/${issue.node.repository.name}#${issue.node.url.split("/").pop()}](${issueLink})`,
-            ]);
+            matchResultArray.set(assignee.login, [issueLinkMarkdown]);
           }
         });
       }
